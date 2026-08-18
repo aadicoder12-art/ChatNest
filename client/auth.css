@@ -1,0 +1,348 @@
+/* =========================================
+   CHATNEST AUTH PAGE
+========================================= */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --primary: #6c5ce7;
+    --primary-dark: #5848d6;
+    --primary-light: #eeeaff;
+
+    --background: #f4f6fb;
+
+    --text: #1f2330;
+    --muted: #8a8f9d;
+
+    --border: #e5e7ef;
+
+    --white: #ffffff;
+}
+
+
+/* =========================================
+   BODY
+========================================= */
+
+body {
+    min-height: 100vh;
+
+    font-family:
+        "Segoe UI",
+        Arial,
+        sans-serif;
+
+    background:
+        radial-gradient(
+            circle at top left,
+            #eeeaff 0%,
+            transparent 35%
+        ),
+        radial-gradient(
+            circle at bottom right,
+            #e8e4ff 0%,
+            transparent 35%
+        ),
+        var(--background);
+
+    color: var(--text);
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+
+    padding: 20px;
+}
+
+
+/* =========================================
+   AUTH CONTAINER
+========================================= */
+
+.auth-container {
+    width: 100%;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: center;
+}
+
+
+/* =========================================
+   AUTH BOX
+========================================= */
+
+.auth-box {
+    width: 100%;
+
+    max-width: 420px;
+
+    background: var(--white);
+
+    padding: 42px 38px;
+
+    border-radius: 24px;
+
+    box-shadow:
+        0 25px 70px
+        rgba(31, 35, 48, 0.10);
+
+    border: 1px solid
+        rgba(255, 255, 255, 0.8);
+
+    text-align: center;
+}
+
+
+/* =========================================
+   BRAND
+========================================= */
+
+.auth-box h1 {
+    font-size: 34px;
+
+    font-weight: 750;
+
+    letter-spacing: -1px;
+
+    color: var(--primary);
+
+    margin-bottom: 6px;
+}
+
+
+.subtitle {
+    color: var(--muted);
+
+    font-size: 14px;
+
+    margin-bottom: 30px;
+}
+
+
+/* =========================================
+   TABS
+========================================= */
+
+.tabs {
+    display: flex;
+
+    background: #f4f5f9;
+
+    border-radius: 12px;
+
+    padding: 4px;
+
+    margin-bottom: 24px;
+}
+
+.tabs button {
+    flex: 1;
+
+    border: none;
+
+    background: transparent;
+
+    padding: 11px;
+
+    border-radius: 9px;
+
+    font-size: 14px;
+
+    font-weight: 600;
+
+    color: var(--muted);
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.tabs button:hover {
+    color: var(--primary);
+}
+
+.tabs button.active {
+    background: white;
+
+    color: var(--primary);
+
+    box-shadow:
+        0 3px 10px
+        rgba(31, 35, 48, 0.08);
+}
+
+
+/* =========================================
+   FORM
+========================================= */
+
+#authForm {
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 13px;
+}
+
+
+/* =========================================
+   INPUTS
+========================================= */
+
+#authForm input {
+    width: 100%;
+
+    height: 50px;
+
+    padding: 0 15px;
+
+    border: 1px solid var(--border);
+
+    border-radius: 12px;
+
+    background: #f8f9fc;
+
+    color: var(--text);
+
+    font-size: 14px;
+
+    outline: none;
+
+    transition:
+        border 0.2s ease,
+        background 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+#authForm input::placeholder {
+    color: #a0a4af;
+}
+
+#authForm input:focus {
+    background: white;
+
+    border-color: var(--primary);
+
+    box-shadow:
+        0 0 0 3px
+        rgba(108, 92, 231, 0.10);
+}
+
+
+/* =========================================
+   SUBMIT BUTTON
+========================================= */
+
+#submitButton {
+    width: 100%;
+
+    height: 50px;
+
+    margin-top: 6px;
+
+    border: none;
+
+    border-radius: 12px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #6c5ce7,
+            #7567eb
+        );
+
+    color: white;
+
+    font-size: 15px;
+
+    font-weight: 650;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 8px 18px
+        rgba(108, 92, 231, 0.20);
+
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+#submitButton:hover {
+    background:
+        linear-gradient(
+            135deg,
+            #5848d6,
+            #6658df
+        );
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 11px 22px
+        rgba(108, 92, 231, 0.25);
+}
+
+#submitButton:active {
+    transform: translateY(0);
+}
+
+
+/* =========================================
+   MESSAGE
+========================================= */
+
+#message {
+    min-height: 20px;
+
+    margin-top: 16px;
+
+    font-size: 13px;
+
+    color: #e74c3c;
+}
+
+
+/* =========================================
+   HIDDEN
+========================================= */
+
+.hidden {
+    display: none !important;
+}
+
+
+/* =========================================
+   MOBILE
+========================================= */
+
+@media (max-width: 480px) {
+
+    body {
+        padding: 15px;
+    }
+
+    .auth-box {
+        padding: 32px 22px;
+
+        border-radius: 20px;
+    }
+
+    .auth-box h1 {
+        font-size: 30px;
+    }
+
+}

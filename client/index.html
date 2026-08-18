@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,19 +12,128 @@
 
 <body>
 
+    <script>
+        if (!localStorage.getItem("chatnestToken")) {
+            window.location.href = "/auth.html";
+        }
+    </script>
+
     <div class="app">
 
-        <h1>Welcome to ChatNest</h1>
+        <!-- LEFT SIDEBAR -->
+        <aside class="sidebar">
 
-        <p>Your own chatting website.</p>
+            <div class="sidebar-header">
+                <h1>ChatNest</h1>
 
-        <button id="startButton">
-            Start Chatting
-        </button>
+                <button id="logoutButton" type="button">
+                    Logout
+                </button>
+            </div>
+
+            <div class="account">
+                <div class="avatar">
+                    U
+                </div>
+
+                <div>
+                    <strong id="currentUsername">
+                        User
+                    </strong>
+
+                    <div>My account</div>
+                </div>
+            </div>
+
+            <div class="search-container">
+                <input
+                    type="text"
+                    id="searchUsers"
+                    placeholder="Search users..."
+                    autocomplete="off"
+                >
+            </div>
+
+            <div
+                id="chatList"
+                class="chat-list"
+            >
+                <p>Loading users...</p>
+            </div>
+
+        </aside>
+
+
+        <!-- CHAT AREA -->
+        <main class="chat-area">
+
+            <header class="chat-header">
+
+                <div>
+                    <h2 id="chatUsername">
+                        Select a user
+                    </h2>
+
+                    <div id="chatStatus">
+                        Select someone to start chatting
+                    </div>
+                </div>
+
+            </header>
+
+
+            <!-- MESSAGES -->
+            <div
+                class="messages"
+                id="messages"
+            >
+
+                <div class="welcome">
+
+                    <div class="welcome-icon">
+                        💬
+                    </div>
+
+                    <h2>
+                        Welcome to ChatNest
+                    </h2>
+
+                    <p>
+                        Select a user to start a private conversation.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <!-- MESSAGE INPUT -->
+            <div class="message-input-area">
+
+                <input
+                    type="text"
+                    id="messageInput"
+                    placeholder="Type a message..."
+                    autocomplete="off"
+                >
+
+                <button
+                    id="sendButton"
+                    type="button"
+                >
+                    Send
+                </button>
+
+            </div>
+
+        </main>
 
     </div>
 
+
+    <script src="/socket.io/socket.io.js"></script>
     <script src="script.js"></script>
 
 </body>
+
 </html>
