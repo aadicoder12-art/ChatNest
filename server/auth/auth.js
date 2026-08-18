@@ -1,193 +1,185 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const db = require("../database");
+const { pool } = require("../database");
 
-const JWT_SECRET = "chatnest-secret-key";
+const JWT_SECRET =
+    process.env.JWT_SECRET || "chatnest-secret-key";
 
 
-// ==========================================
-// REGISTER
-// ==========================================
+/* ==========================================
+   REGISTER
+========================================== */
 
-function register(username, email, password) {
+async function register(
+    username,
+    email,
+    password
+) {
 
-    username = String(username || "").trim();
-    email = String(email || "").trim().toLowerCase();
-    password = String(password || "");
+    const existingUser =
+        await pool.query(
+            `
+            SELECT id
+            FROM users
+            WHERE email = $1
+               OR username = $2
+            `,
+            [email, username]
+        );
 
-    if (!username || !email || !password) {
+    if (existingUser.rows.length > 0) {
 
         return {
             success: false,
-            message: "All fields are required"
+            message:
+                "Username or email already exists"
         };
 
     }
 
 
-    // Check existing username or email
-    const existingUser = db.prepare(`
-        SELECT id
-        FROM users
-        WHERE LOWER(email) = LOWER(?)
-        OR LOWER(username) = LOWER(?)
-    `).get(email, username);
-
-
-    if (existingUser) {
-
-        return {
-            success: false,
-            message: "Username or email already exists"
-        };
-
-    }
-
-
-    // Hash password
     const hashedPassword =
-        bcrypt.hashSync(password, 10);
+        await bcrypt.hash(
+            password,
+            10
+        );
 
 
-    // Create user
-    const result = db.prepare(`
-        INSERT INTO users (
-            username,
-            email,
-            password
-        )
-        VALUES (?, ?, ?)
-    `).run(
-        username,
-        email,
-        hashedPassword
-    );
+    const result =
+        await pool.query(
+            `
+            INSERT INTO users
+            (
+                username,
+                email,
+                password
+            )
+            VALUES ($1, $2, $3)
+            RETURNING
+                id,
+                username,
+                email
+            `,
+            [
+                username,
+                email,
+                hashedPassword
+            ]
+        );
+
+
+    const user =
+        result.rows[0];
+
+
+    const token =
+        jwt.sign(
+            {
+                id: user.id,
+                username: user.username,
+                email: user.email
+            },
+            JWT_SECRET,
+            {
+                expiresIn: "7d"
+            }
+        );
 
 
     return {
-
         success: true,
-
         message: "Registration successful",
-
-        user: {
-            id: Number(result.lastInsertRowid),
-            username: username,
-            email: email
-        }
-
+        token,
+        user
     };
 
 }
 
 
-// ==========================================
-// LOGIN
-// ==========================================
+/* ==========================================
+   LOGIN
+========================================== */
 
-function login(email, password) {
+async function login(
+    email,
+    password
+) {
 
-    email = String(email || "").trim().toLowerCase();
-    password = String(password || "");
-
-
-    if (!email || !password) {
-
-        return {
-            success: false,
-            message: "Email and password are required"
-        };
-
-    }
-
-
-    // Find user without caring about email case
-    const user = db.prepare(`
-        SELECT *
-        FROM users
-        WHERE LOWER(email) = LOWER(?)
-        LIMIT 1
-    `).get(email);
-
-
-    if (!user) {
-
-        console.log(
-            "Login failed - user not found:",
-            email
+    const result =
+        await pool.query(
+            `
+            SELECT
+                id,
+                username,
+                email,
+                password
+            FROM users
+            WHERE email = $1
+            `,
+            [email]
         );
 
+
+    if (result.rows.length === 0) {
+
         return {
             success: false,
-            message: "Invalid email or password"
+            message:
+                "Invalid email or password"
         };
 
     }
 
 
-    // Check password
-    const passwordCorrect =
-        bcrypt.compareSync(
+    const user =
+        result.rows[0];
+
+
+    const passwordMatch =
+        await bcrypt.compare(
             password,
             user.password
         );
 
 
-    if (!passwordCorrect) {
-
-        console.log(
-            "Login failed - incorrect password:",
-            email
-        );
+    if (!passwordMatch) {
 
         return {
             success: false,
-            message: "Invalid email or password"
+            message:
+                "Invalid email or password"
         };
 
     }
 
 
-    // Create JWT token
-    const token = jwt.sign(
-        {
-            id: user.id,
-            username: user.username,
-            email: user.email
-        },
-        JWT_SECRET,
-        {
-            expiresIn: "7d"
-        }
-    );
-
-
-    console.log(
-        "Login successful:",
-        user.username
-    );
+    const token =
+        jwt.sign(
+            {
+                id: user.id,
+                username: user.username,
+                email: user.email
+            },
+            JWT_SECRET,
+            {
+                expiresIn: "7d"
+            }
+        );
 
 
     return {
-
         success: true,
-
-        token: token,
-
+        message: "Login successful",
+        token,
         user: {
             id: user.id,
             username: user.username,
             email: user.email
         }
-
     };
 
 }
 
-
-// ==========================================
-// EXPORT
-// ==========================================
 
 module.exports = {
     register,

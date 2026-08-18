@@ -4,15 +4,22 @@ const path = require("path");
 const { Server } = require("socket.io");
 const jwt = require("jsonwebtoken");
 
-const db = require("./database");
+const { pool, initializeDatabase } = require("./database");
 const { register, login } = require("./auth/auth");
 
 const app = express();
 const server = http.createServer(app);
+
 const io = new Server(server);
 
-const PORT = 3000;
-const JWT_SECRET = "chatnest-secret-key";
+const PORT = process.env.PORT || 3000;
+const JWT_SECRET =
+    process.env.JWT_SECRET || "chatnest-secret-key";
+
+
+/* ==========================================
+   MIDDLEWARE
+========================================== */
 
 app.use(express.json());
 
@@ -27,31 +34,30 @@ app.use(
    REGISTER
 ========================================== */
 
-app.post("/api/register", (req, res) => {
-
-    const {
-        username,
-        email,
-        password
-    } = req.body;
-
-    if (!username || !email || !password) {
-
-        return res.status(400).json({
-            success: false,
-            message: "All fields are required"
-        });
-
-    }
+app.post("/api/register", async (req, res) => {
 
     try {
 
-        const result =
-            register(
-                username,
-                email,
-                password
-            );
+        const {
+            username,
+            email,
+            password
+        } = req.body;
+
+        if (!username || !email || !password) {
+
+            return res.status(400).json({
+                success: false,
+                message: "All fields are required"
+            });
+
+        }
+
+        const result = await register(
+            username,
+            email,
+            password
+        );
 
         res.json(result);
 
@@ -76,30 +82,29 @@ app.post("/api/register", (req, res) => {
    LOGIN
 ========================================== */
 
-app.post("/api/login", (req, res) => {
-
-    const {
-        email,
-        password
-    } = req.body;
-
-    if (!email || !password) {
-
-        return res.status(400).json({
-            success: false,
-            message:
-                "Email and password are required"
-        });
-
-    }
+app.post("/api/login", async (req, res) => {
 
     try {
 
-        const result =
-            login(
-                email,
-                password
-            );
+        const {
+            email,
+            password
+        } = req.body;
+
+        if (!email || !password) {
+
+            return res.status(400).json({
+                success: false,
+                message:
+                    "Email and password are required"
+            });
+
+        }
+
+        const result = await login(
+            email,
+            password
+        );
 
         res.json(result);
 
@@ -164,40 +169,11 @@ function authenticateToken(
                 JWT_SECRET
             );
 
-        /*
-         * Support both possible JWT formats.
-         */
-
-        const userId =
-            Number(
-                user.id ??
-                user.userId ??
-                user.user_id
-            );
-
-        if (!userId) {
-
-            return res.status(401).json({
-                success: false,
-                message:
-                    "User ID missing from token"
-            });
-
-        }
-
-        req.user = {
-            ...user,
-            id: userId
-        };
+        req.user = user;
 
         next();
 
     } catch (error) {
-
-        console.error(
-            "AUTH ERROR:",
-            error
-        );
 
         return res.status(401).json({
             success: false,
@@ -217,34 +193,25 @@ function authenticateToken(
 app.get(
     "/api/users",
     authenticateToken,
-    (req, res) => {
+    async (req, res) => {
 
         try {
 
-            const currentUserId =
-                Number(req.user.id);
-
-            const users =
-                db.prepare(`
+            const result =
+                await pool.query(
+                    `
                     SELECT
                         id,
                         username,
                         email
                     FROM users
-                    WHERE id != ?
+                    WHERE id != $1
                     ORDER BY username ASC
-                `).all(
-                    currentUserId
+                    `,
+                    [req.user.id]
                 );
 
-            console.log(
-                "Users requested by:",
-                currentUserId,
-                "Found:",
-                users.length
-            );
-
-            res.json(users);
+            res.json(result.rows);
 
         } catch (error) {
 
@@ -266,13 +233,13 @@ app.get(
 
 
 /* ==========================================
-   GET PRIVATE MESSAGE HISTORY
+   GET MESSAGE HISTORY
 ========================================== */
 
 app.get(
     "/api/messages/:userId",
     authenticateToken,
-    (req, res) => {
+    async (req, res) => {
 
         try {
 
@@ -280,22 +247,11 @@ app.get(
                 Number(req.user.id);
 
             const otherUserId =
-                Number(
-                    req.params.userId
-                );
+                Number(req.params.userId);
 
-            if (!otherUserId) {
-
-                return res.status(400).json({
-                    success: false,
-                    message:
-                        "Invalid user"
-                });
-
-            }
-
-            const messages =
-                db.prepare(`
+            const result =
+                await pool.query(
+                    `
                     SELECT
                         id,
                         sender_id,
@@ -305,30 +261,43 @@ app.get(
                     FROM messages
                     WHERE
                         (
-                            sender_id = ?
-                            AND receiver_id = ?
+                            sender_id = $1
+                            AND receiver_id = $2
                         )
                         OR
                         (
-                            sender_id = ?
-                            AND receiver_id = ?
+                            sender_id = $2
+                            AND receiver_id = $1
                         )
-                    ORDER BY id ASC
-                `).all(
-                    currentUserId,
-                    otherUserId,
-                    otherUserId,
-                    currentUserId
+                    ORDER BY created_at ASC
+                    `,
+                    [
+                        currentUserId,
+                        otherUserId
+                    ]
                 );
 
-            res.json(
-                messages
-            );
+            const messages =
+                result.rows.map(
+                    message => ({
+                        id: message.id,
+                        senderId:
+                            message.sender_id,
+                        receiverId:
+                            message.receiver_id,
+                        text:
+                            message.message,
+                        createdAt:
+                            message.created_at
+                    })
+                );
+
+            res.json(messages);
 
         } catch (error) {
 
             console.error(
-                "GET MESSAGE HISTORY ERROR:",
+                "MESSAGE HISTORY ERROR:",
                 error
             );
 
@@ -354,7 +323,7 @@ io.use(
         try {
 
             const token =
-                socket.handshake.auth.token;
+                socket.handshake.auth?.token;
 
             if (!token) {
 
@@ -372,40 +341,15 @@ io.use(
                     JWT_SECRET
                 );
 
-            const userId =
-                Number(
-                    user.id ??
-                    user.userId ??
-                    user.user_id
-                );
-
-            if (!userId) {
-
-                return next(
-                    new Error(
-                        "User ID missing from token"
-                    )
-                );
-
-            }
-
-            socket.user = {
-                ...user,
-                id: userId
-            };
+            socket.user = user;
 
             next();
 
         } catch (error) {
 
-            console.error(
-                "SOCKET AUTH ERROR:",
-                error
-            );
-
             next(
                 new Error(
-                    "Invalid authentication token"
+                    "Invalid or expired token"
                 )
             );
 
@@ -423,149 +367,99 @@ io.on(
     "connection",
     (socket) => {
 
-        const currentUserId =
-            Number(
-                socket.user.id
-            );
-
         console.log(
             "User connected:",
-            socket.user.username,
-            "| ID:",
-            currentUserId
+            socket.user.username
         );
 
-
-        /* ======================================
-           PRIVATE USER ROOM
-        ====================================== */
 
         socket.join(
-            `user_${currentUserId}`
+            `user_${socket.user.id}`
         );
 
 
-        /* ======================================
-           PRIVATE MESSAGE
-        ====================================== */
+        /* ==============================
+           SEND MESSAGE
+        ============================== */
 
         socket.on(
             "chat message",
-            (data) => {
+            async (data) => {
 
                 try {
 
                     const text =
                         String(
-                            data?.text || ""
+                            data.text || ""
                         ).trim();
 
                     const receiverId =
                         Number(
-                            data?.receiverId
+                            data.receiverId
                         );
-
-
-                    if (!text) {
-                        return;
-                    }
-
-
-                    if (!receiverId) {
-
-                        socket.emit(
-                            "chat error",
-                            "Invalid receiver"
-                        );
-
-                        return;
-                    }
-
 
                     if (
-                        receiverId ===
-                        currentUserId
+                        !text ||
+                        !receiverId
                     ) {
-
                         return;
                     }
 
-
-                    /* Check receiver */
-
-                    const receiver =
-                        db.prepare(`
-                            SELECT
-                                id,
-                                username
-                            FROM users
-                            WHERE id = ?
-                        `).get(
-                            receiverId
-                        );
-
-
-                    if (!receiver) {
-
-                        socket.emit(
-                            "chat error",
-                            "User does not exist"
-                        );
-
-                        return;
-                    }
-
-
-                    /* Save message */
 
                     const result =
-                        db.prepare(`
-                            INSERT INTO messages (
+                        await pool.query(
+                            `
+                            INSERT INTO messages
+                            (
                                 sender_id,
                                 receiver_id,
                                 message
                             )
-                            VALUES (?, ?, ?)
-                        `).run(
-                            currentUserId,
-                            receiverId,
-                            text
+                            VALUES
+                            ($1, $2, $3)
+                            RETURNING
+                                id,
+                                sender_id,
+                                receiver_id,
+                                message,
+                                created_at
+                            `,
+                            [
+                                socket.user.id,
+                                receiverId,
+                                text
+                            ]
                         );
 
 
-                    const messageData = {
+                    const row =
+                        result.rows[0];
 
-                        id:
-                            Number(
-                                result.lastInsertRowid
-                            ),
 
-                        text:
-                            text,
+                    const message = {
+                        id: row.id,
 
                         senderId:
-                            currentUserId,
+                            row.sender_id,
 
                         receiverId:
-                            receiverId,
+                            row.receiver_id,
 
-                        senderUsername:
-                            socket.user.username,
+                        text:
+                            row.message,
 
                         createdAt:
-                            new Date()
-                                .toISOString()
-
+                            row.created_at
                     };
 
 
                     /* Send to sender */
 
                     io.to(
-                        `user_${currentUserId}`
+                        `user_${socket.user.id}`
                     ).emit(
                         "chat message",
-                        messageData
+                        message
                     );
 
 
@@ -575,12 +469,7 @@ io.on(
                         `user_${receiverId}`
                     ).emit(
                         "chat message",
-                        messageData
-                    );
-
-
-                    console.log(
-                        `${socket.user.username} -> ${receiver.username}: ${text}`
+                        message
                     );
 
                 } catch (error) {
@@ -596,9 +485,9 @@ io.on(
         );
 
 
-        /* ======================================
+        /* ==============================
            DISCONNECT
-        ====================================== */
+        ============================== */
 
         socket.on(
             "disconnect",
@@ -620,25 +509,35 @@ io.on(
    START SERVER
 ========================================== */
 
-server.listen(
-    PORT,
-    () => {
+async function startServer() {
 
-        console.log(
-            "================================"
+    try {
+
+        await initializeDatabase();
+
+        server.listen(
+            PORT,
+            "0.0.0.0",
+            () => {
+
+                console.log(
+                    `ChatNest running on port ${PORT}`
+                );
+
+            }
         );
 
-        console.log(
-            "ChatNest server started!"
+    } catch (error) {
+
+        console.error(
+            "SERVER START ERROR:",
+            error
         );
 
-        console.log(
-            `http://localhost:${PORT}`
-        );
-
-        console.log(
-            "================================"
-        );
+        process.exit(1);
 
     }
-);
+
+}
+
+startServer();
